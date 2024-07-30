@@ -6,12 +6,12 @@
 #define INPUT6_PIN 7
 #define INPUT7_PIN 8
 #define INPUT8_PIN 9
-
+//G vari
 volatile bool isISRCalled = false;
 volatile uint8_t g_ReadDIpinSts = 0;
 volatile uint8_t g_AppDIpinSts = 0;
 volatile uint8_t g_PinConsistencyCounters[8] = {0};
-
+//Func dec
 void initDigitalInputs(void) 
 {
 pinMode(INPUT1_PIN, INPUT_PULLUP);
