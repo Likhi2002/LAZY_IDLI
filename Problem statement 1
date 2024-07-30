@@ -1,0 +1,111 @@
+#define INPUT1_PIN 2
+#define INPUT2_PIN 3
+#define INPUT3_PIN 4
+#define INPUT4_PIN 5
+#define INPUT5_PIN 6
+#define INPUT6_PIN 7
+#define INPUT7_PIN 8
+#define INPUT8_PIN 9
+
+volatile bool isISRCalled = false;
+volatile uint8_t g_ReadDIpinSts = 0;
+volatile uint8_t g_AppDIpinSts = 0;
+volatile uint8_t g_PinConsistencyCounters[8] = {0};
+
+void initDigitalInputs(void) 
+{
+pinMode(INPUT1_PIN, INPUT_PULLUP);
+pinMode(INPUT2_PIN, INPUT_PULLUP);
+pinMode(INPUT3_PIN, INPUT_PULLUP);
+pinMode(INPUT4_PIN, INPUT_PULLUP);
+pinMode(INPUT5_PIN, INPUT_PULLUP);
+pinMode(INPUT6_PIN, INPUT_PULLUP);
+pinMode(INPUT7_PIN, INPUT_PULLUP);
+pinMode(INPUT8_PIN, INPUT_PULLUP);
+}
+    
+
+void initTimer1(void) 
+{ 
+noInterrupts();
+TCCR1A = 0;
+TCCR1B = 0;
+TCNT1 = 0;
+OCR1A = 24999;
+TCCR1B |= (1 << WGM12);
+TCCR1B |= (1 << CS11) | (1 << CS10);
+TIMSK1 |= (1 << OCIE1A);
+interrupts();
+}
+
+ISR(TIMER1_COMPA_vect) 
+{
+ISR_DIsampling();
+}
+
+void ISR_DIsampling(void) 
+{
+isISRCalled = true;
+
+uint8_t newReadDIpinSts = 0;
+if (digitalRead(INPUT1_PIN) == LOW) newReadDIpinSts |= (1 << 0);
+if (digitalRead(INPUT2_PIN) == LOW) newReadDIpinSts |= (1 << 1);
+if (digitalRead(INPUT3_PIN) == LOW) newReadDIpinSts |= (1 << 2);
+if (digitalRead(INPUT4_PIN) == LOW) newReadDIpinSts |= (1 << 3);
+if (digitalRead(INPUT5_PIN) == LOW) newReadDIpinSts |= (1 << 4);
+if (digitalRead(INPUT6_PIN) == LOW) newReadDIpinSts |= (1 << 5);
+if (digitalRead(INPUT7_PIN) == LOW) newReadDIpinSts |= (1 << 6);
+if (digitalRead(INPUT8_PIN) == LOW) newReadDIpinSts |= (1 << 7);
+
+g_ReadDIpinSts = newReadDIpinSts;
+
+for (uint8_t i = 0; i < 8; i++) 
+{
+uint8_t currentBit = (newReadDIpinSts >> i) & 0x01;
+uint8_t appBit = (g_AppDIpinSts >> i) & 0x01;
+if (currentBit == appBit) 
+{
+g_PinConsistencyCounters[i] = 0;
+} 
+else 
+{
+g_PinConsistencyCounters[i]++;
+if (g_PinConsistencyCounters[i] >= 10)
+{
+if (currentBit) 
+{
+g_AppDIpinSts |= (1 << i);
+} 
+else 
+{
+g_AppDIpinSts &= ~(1 << i);
+}
+g_PinConsistencyCounters[i] = 0;
+}
+}
+}
+}
+
+void setup() 
+{
+Serial.begin(9600);
+initDigitalInputs();
+initTimer1();
+}
+
+void loop() 
+{
+if (isISRCalled) 
+{
+Serial.print("ISR was called! ");
+Serial.print("g_ReadDIpinSts: ");
+Serial.print(g_ReadDIpinSts, BIN);
+Serial.print(" g_AppDIpinSts: ");
+Serial.println(g_AppDIpinSts, BIN);
+isISRCalled = false;
+} 
+else 
+{
+Serial.println("ISR was not called.");
+}
+}
